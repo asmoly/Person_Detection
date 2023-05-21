@@ -16,15 +16,18 @@ def rectangle_overlap(ax, ay, ax1, ay1, bx, by, bx1, by1):
     dx = min(ax1, bx1) - max(ax, bx)
     dy = min(ay1, by1) - max(ay, by)
 
+    rectangle1_area = (ax1 - ax)*(ay1 - ay)
+
+    overlaping_area = 0
     if dx >= 0 and dy >= 0:
-        return dx*dy
-    else:
-        return 0
+        overlaping_area =  dx*dy
+    
+    return overlaping_area/rectangle1_area
 
 print("Starting person counter")
 
 print("Opening camera 0")
-cam = cv2.VideoCapture(0, cv2.CAP_DSHOW)
+cam = cv2.VideoCapture(1, cv2.CAP_DSHOW)
 cam.set(cv2.CAP_PROP_FRAME_WIDTH, 1024)
 cam.set(cv2.CAP_PROP_FRAME_HEIGHT, 1024)
 print("Opened camera")
@@ -81,7 +84,7 @@ while True:
 
         bboxes = []
         for blob in blobs:
-            if len(blob) > 10:
+            if len(blob) > 30:
                 blob = np.array(blob)
                 blob = blob.reshape((blob.shape[0], 2))
 
@@ -114,7 +117,7 @@ while True:
                 for i in range (0, len(new_bboxes)):
                     overlaping_area = rectangle_overlap(x, y, x1, y1, new_bboxes[i][0], new_bboxes[i][1], new_bboxes[i][2], new_bboxes[i][3])
 
-                    if overlaping_area > 50:
+                    if overlaping_area > 0.1:
                         overlaping = True
 
                 if overlaping == False:

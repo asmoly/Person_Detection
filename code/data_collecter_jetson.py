@@ -66,10 +66,13 @@ def rectangle_overlap(ax, ay, ax1, ay1, bx, by, bx1, by1):
     dx = min(ax1, bx1) - max(ax, bx)
     dy = min(ay1, by1) - max(ay, by)
 
+    rectangle1_area = (ax1 - ax)*(ay1 - ay)
+
+    overlaping_area = 0
     if dx >= 0 and dy >= 0:
-        return dx*dy
-    else:
-        return 0
+        overlaping_area =  dx*dy
+    
+    return overlaping_area/rectangle1_area
 
 def get_bboxes(blobs, modelOutput, pixel_thresh):
     bboxes = []
