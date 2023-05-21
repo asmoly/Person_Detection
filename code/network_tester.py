@@ -9,6 +9,6 @@ def data_logger_string(username, device_id, people_count):
     return datalogger_url_str
 
 
-data = data_logger_string("sasha", "network_test2", 11)
+data = data_logger_string("sasha", "network_test3", 50)
 
 test = requests.post(data)
