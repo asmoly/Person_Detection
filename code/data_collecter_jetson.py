@@ -34,9 +34,19 @@ def timer(time_interval, log_name):
                 average_people_count += people_count
 
             average_people_count = average_people_count/len(people_count_list)
+            print(f"Average count of people is: {average_people_count}")
 
             data = data_logger_string("sasha", log_name, average_people_count)
-            requests.post(data)
+
+            sent_data = False
+            while sent_data == False:
+                try:
+                    requests.post(data)
+                    sent_data = True
+                    print("Succesfully sent data")
+                except:
+                    sent_data = False
+                    print("Could not send data")
 
             time = 0
             people_count_list = []
