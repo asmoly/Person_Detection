@@ -23,9 +23,7 @@ from torch.utils.tensorboard import SummaryWriter
 # This was used to manipulate images
 from PIL import Image
 
-# These are my programs
-# Utils has some functions for uploading data to tensor board
-from utils import *
+# This is from my file
 # This contains the data parser to read in the dataset
 from data_parser import parse_data
 
@@ -407,12 +405,6 @@ def train(device, start_epoch, n_epochs, path_to_manifest, path_to_data, path_to
     for epoch_index in range (start_epoch, start_epoch + n_epochs):
         # This just prints out the epoch index and the learning rate
         print('Epoch {}, lr {}'.format(epoch_index, optimizer.param_groups[0]['lr']))
-
-        # This runs every 5 epochs
-        if epoch_index % 5 == 0:
-            # It logs weight and gradient histograms to tensor board
-            log_weight_histograms(writer, epoch_index, model)
-            log_gradient_histograms(writer, epoch_index, model)
 
         # This loops through batches in the dataset
         for images, targets in data_loader:
