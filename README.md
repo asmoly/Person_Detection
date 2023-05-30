@@ -18,7 +18,7 @@ CrowdHuman Dataset: https://www.crowdhuman.org/
     year={2018}
   }
   
-## Files
+### Files
 The code folder contains all of the programs for this project:
 * **person_finder_AI.py** contains the neural network and is used to train the neural network.
 * **data_collector_jetson.py** is the program that runs on the Jetson Nano. It calculates the number of people in the room and uploads it to the cloud.
@@ -27,3 +27,10 @@ The code folder contains all of the programs for this project:
 * **model_tester_jetson.py** is used to run the nerual network on the Jetson Nano.
 * **personnet_72.pt** is the saved model for the neural network.
 * **graphs.py** draws graphs using the data collected.
+
+### Running the Programs
+#### Training
+To train the nerual network download the CrowdHuman training dataset. Put all the dataset files (images1, images2, images3, and annotations) in a folder called "data" in the same directory as the person_finder_AI.py program. Then at the bottom of person_finder_AI.py where the train function is called, specify the parameters. Path to annotations is the annotations file that you downloaded. Path to data is the path to the folder where image folders 1, 2, and 3 are stored. Path to logs is where you want to store logs from the training. And path to model is what model to train. If you are starting with no mode set it equal to None.
+#### Testing
+* To test the neural network on your **computer** run the **model_tester.py** program. Make sure that the personnet_72.pt file is in the same directory as model_tester.py, and that the correct camera is selected.
+* To test the neural netowkr on a **Jetson nano** run the **model_tester_jetson.py** program on your Jetson Nano. Make sure the personnet_72.pt file is in the same directory as model_tester_jetson.py, and that the correct camera is selected.
