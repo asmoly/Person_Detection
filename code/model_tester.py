@@ -12,13 +12,33 @@ import numpy as np
 from PIL import Image
 import person_finder_AI
 
+def rectangle_overlap(ax, ay, ax1, ay1, bx, by, bx1, by1):
+    dx = min(ax1, bx1) - max(ax, bx)
+    dy = min(ay1, by1) - max(ay, by)
+
+    rectangle1_area = (ax1 - ax)*(ay1 - ay)
+
+    overlaping_area = 0
+    if dx >= 0 and dy >= 0:
+        overlaping_area =  dx*dy
+    
+    return overlaping_area/rectangle1_area
+
+print("Starting person counter")
+
+print("Opening camera 0")
 cam = cv2.VideoCapture(1, cv2.CAP_DSHOW)
 cam.set(cv2.CAP_PROP_FRAME_WIDTH, 1024)
 cam.set(cv2.CAP_PROP_FRAME_HEIGHT, 1024)
+print("Opened camera")
 
+print("Opening device")
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+print("Loaded device", device)
 
-model = person_finder_AI.load_model("D:/Person_Finder_Logs/facenet_64.pt").to(device)
+print("Loading model")
+model = person_finder_AI.load_model("personnet_72.pt").to(device)
+print("Loaded model")
 
 while True:
     ret, image = cam.read()
@@ -27,6 +47,8 @@ while True:
     image = Image.fromarray(image)
     image = image.crop((0, 0, 1024, 1024))
     image = transforms.ToTensor()(image)
+
+    
 
     with torch.no_grad():
         modelOutput = model(image.to(device)).cpu()
@@ -60,8 +82,9 @@ while True:
         blobs = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         blobs = blobs[0] if len(blobs) == 2 else blobs[1]
 
+        bboxes = []
         for blob in blobs:
-            if len(blob) > 10:
+            if len(blob) > 30:
                 blob = np.array(blob)
                 blob = blob.reshape((blob.shape[0], 2))
 
@@ -76,8 +99,32 @@ while True:
                     averageBbox[3] += currentBbox[3]*1024
 
                 averageBbox = (averageBbox/len(blob)).astype(int)
+                bboxes.append(averageBbox)
 
-                outputImage = cv2.rectangle(outputImage, (averageBbox[0], averageBbox[1]), (averageBbox[0] + averageBbox[2], averageBbox[1] + averageBbox[3]), color=(0, 0, 255), thickness=2)
+                #outputImage = cv2.rectangle(outputImage, (averageBbox[0], averageBbox[1]), (averageBbox[0] + averageBbox[2], averageBbox[1] + averageBbox[3]), color=(0, 0, 255), thickness=2)
+
+        new_bboxes = []
+        for bbox in bboxes:
+            x = bbox[0]
+            y = bbox[1]
+            x1 = bbox[0] + bbox[2]
+            y1 = bbox[1] + bbox[3]
+            
+            if len(new_bboxes) == 0:
+                new_bboxes.append([x, y, x1, y1])
+            else:
+                overlaping = False
+                for i in range (0, len(new_bboxes)):
+                    overlaping_area = rectangle_overlap(x, y, x1, y1, new_bboxes[i][0], new_bboxes[i][1], new_bboxes[i][2], new_bboxes[i][3])
+
+                    if overlaping_area > 0.1:
+                        overlaping = True
+
+                if overlaping == False:
+                    new_bboxes.append([x, y, x1, y1])
+
+        for bbox in new_bboxes:
+            outputImage = cv2.rectangle(outputImage, (bbox[0], bbox[1]), (bbox[2], bbox[3]), color=(0, 0, 255), thickness=2)
 
     cv2.imshow("video", outputImage)
     cv2.waitKey(1)
