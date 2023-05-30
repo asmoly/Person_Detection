@@ -12,6 +12,9 @@ import numpy as np
 from PIL import Image
 import person_finder_AI
 
+# Make sure that the camera is correct
+CAMERA = 0
+
 def rectangle_overlap(ax, ay, ax1, ay1, bx, by, bx1, by1):
     dx = min(ax1, bx1) - max(ax, bx)
     dy = min(ay1, by1) - max(ay, by)
@@ -27,7 +30,7 @@ def rectangle_overlap(ax, ay, ax1, ay1, bx, by, bx1, by1):
 print("Starting person counter")
 
 print("Opening camera 0")
-cam = cv2.VideoCapture(1, cv2.CAP_DSHOW)
+cam = cv2.VideoCapture(CAMERA, cv2.CAP_DSHOW)
 cam.set(cv2.CAP_PROP_FRAME_WIDTH, 1024)
 cam.set(cv2.CAP_PROP_FRAME_HEIGHT, 1024)
 print("Opened camera")
