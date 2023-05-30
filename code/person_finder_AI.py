@@ -16,7 +16,7 @@ import torchvision.transforms as transforms
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import data_loader, Dataset
 
 # This is tensor board which allowed me to see the loss and images during training
 from torch.utils.tensorboard import SummaryWriter
@@ -46,13 +46,13 @@ W2 = 20.0
 # This transforms the image with some random ajustments in brightness, contrast, and saturation
 # This is done so that the neural network trains on different types of images
 # It also converts the image to a tensor
-dataTransformations = transforms.Compose([
+data_transformations = transforms.Compose([
     transforms.ColorJitter(brightness=(0.5,1.0), contrast=(0.3,1.0), saturation=(0.3,1.0)),
     transforms.ToTensor()])
 
 # This functions clamps a value between two numbers
-def clamp(value, minValue, maxValue):
-    return max(min(maxValue, value), minValue)
+def clamp(value, min_value, max_value):
+    return max(min(max_value, value), min_value)
 
 # This fills in a specified area in a tensor with a specific value
 # Input variables
@@ -66,30 +66,30 @@ def fill_tensor_mask(tensor, x, y, width, height, value):
     # This sets the values of the tensor within the area to the value
     tensor[int(y):int(y) + int(height), int(x):int(x) + int(width)] = value
 
-    indexTensor = torch.Tensor(np.indices((OUT_IMG_SIZE, OUT_IMG_SIZE))).permute(1, 2, 0)/OUT_IMG_SIZE
-    bboxMask = torch.zeros((OUT_IMG_SIZE, OUT_IMG_SIZE, 2))
-    bboxMask[int(y):int(y) + int(height), int(x):int(x) + int(width)] = torch.Tensor([1.0, 1.0])
-    indexTensor *= bboxMask
+    index_tensor = torch.Tensor(np.indices((OUT_IMG_SIZE, OUT_IMG_SIZE))).permute(1, 2, 0)/OUT_IMG_SIZE
+    bbox_mask = torch.zeros((OUT_IMG_SIZE, OUT_IMG_SIZE, 2))
+    bbox_mask[int(y):int(y) + int(height), int(x):int(x) + int(width)] = torch.Tensor([1.0, 1.0])
+    index_tensor *= bbox_mask
 
     # index tensor has (y, x) and tensor has (x, y)
-    tensor[:, :, 1] -= indexTensor[:, :, 1]
-    tensor[:, :, 2] -= indexTensor[:, :, 0]
+    tensor[:, :, 1] -= index_tensor[:, :, 1]
+    tensor[:, :, 2] -= index_tensor[:, :, 0]
 
     return tensor
 
 # Creates target mask at output resolution with 5 channels: face_score, x, y, width, height 
 # targetsBatch is a tensor of the images in the batch
-def create_mask(targetsBatch):
+def create_mask(targets_batch):
     # This creates the ouput tensor batch
     # This is the channel height width format with 5 channels
-    masksBatch = torch.Tensor(targetsBatch.shape[0], 5, OUT_IMG_SIZE, OUT_IMG_SIZE)
+    masks_batch = torch.Tensor(targets_batch.shape[0], 5, OUT_IMG_SIZE, OUT_IMG_SIZE)
 
     # We assume targetsBatch contains normalized bbox left,top coordinates and width and height in (0..1) range
     # Normalization is done by dividing them by IN_IMG_SIZE
     # This loops through the batch
-    for j in range (0, targetsBatch.shape[0]):   # loop over batch
+    for j in range (0, targets_batch.shape[0]):   # loop over batch
         # This gets the current target and scales it to the image size
-        currentTarget = targetsBatch[j]*OUT_IMG_SIZE # scale to ouput size
+        current_target = targets_batch[j]*OUT_IMG_SIZE # scale to ouput size
         # This creates a mask in width height channel format
         mask = torch.zeros(OUT_IMG_SIZE, OUT_IMG_SIZE, 5)
         
@@ -98,20 +98,20 @@ def create_mask(targetsBatch):
         # If there are less people than the max the data is all 0s
         for i in range (0, MAX_NUM_OF_PEOPLE):
             # Checks if the data is not equal to zero meaning it isnt a person
-            if currentTarget[0 + i*4] != 0 and currentTarget[1 + i*4] != 0 and currentTarget[2 + i*4] != 0 and currentTarget[3 + i*4] != 0:
+            if current_target[0 + i*4] != 0 and current_target[1 + i*4] != 0 and current_target[2 + i*4] != 0 and current_target[3 + i*4] != 0:
                 # Sets the x, y, width, and height of the bounding box to variables that are normalized
-                normBboxX = targetsBatch[j][0 + i*4]
-                normBboxY = targetsBatch[j][1 + i*4]
-                normBboxW = targetsBatch[j][2 + i*4]
-                normBboxH = targetsBatch[j][3 + i*4]
+                normBboxX = targets_batch[j][0 + i*4]
+                normBboxY = targets_batch[j][1 + i*4]
+                normBboxW = targets_batch[j][2 + i*4]
+                normBboxH = targets_batch[j][3 + i*4]
                 
                 # This clamps the scaled target x, y, width, height in the out image size
-                xtl = clamp(currentTarget[0 + i*4], 0, OUT_IMG_SIZE-1)
-                ytl = clamp(currentTarget[1 + i*4], 0, OUT_IMG_SIZE-1)
+                xtl = clamp(current_target[0 + i*4], 0, OUT_IMG_SIZE-1)
+                ytl = clamp(current_target[1 + i*4], 0, OUT_IMG_SIZE-1)
 
                 # These are the bottom right coordinate
-                xbr = clamp(currentTarget[0 + i*4] + currentTarget[2 + i*4], 0, OUT_IMG_SIZE-1)
-                ybr = clamp(currentTarget[1 + i*4] + currentTarget[3 + i*4], 0, OUT_IMG_SIZE-1)
+                xbr = clamp(current_target[0 + i*4] + current_target[2 + i*4], 0, OUT_IMG_SIZE-1)
+                ybr = clamp(current_target[1 + i*4] + current_target[3 + i*4], 0, OUT_IMG_SIZE-1)
 
                 # This calculates the width and height using the scaled coordinates
                 width = xbr - xtl
@@ -123,10 +123,10 @@ def create_mask(targetsBatch):
         # This converts the tensor to channel height width
         mask = mask.permute(2, 0, 1) 
         # This sets the correct element in the batch to the mask
-        masksBatch[j] = mask
+        masks_batch[j] = mask
 
     # This returns the batch tensor with all the masks
-    return masksBatch
+    return masks_batch
 
 # This draws the bounding boxes on an image using open cv
 # image is the image to draw on and result is the bounding boxes
@@ -143,15 +143,15 @@ def draw_labels(image, result):
 # Py torch requires three functions the contructor, __len__ which returns the length
 # of the data, and __getitem__ which needs to return an item by index
 class PeopleDataset(Dataset):
-    def __init__(self, pathToManifest, pathToImages, imageTransform=None):
+    def __init__(self, path_to_manifest, path_to_images, image_transform=None):
         # First I use the functions from my data parser code to get the data
         # pathToManifest is the path to the annotations
-        self.data = parse_data(pathToManifest)
+        self.data = parse_data(path_to_manifest, MAX_NUM_OF_PEOPLE)
 
         # This sets the image transform
-        self.imageTransform = imageTransform
+        self.image_transform = image_transform
         # And this is the path to all of the iages in the dataset
-        self.pathToImages = pathToImages
+        self.path_to_images = path_to_images
 
     # This returns the length of the data
     def __len__(self):
@@ -161,19 +161,19 @@ class PeopleDataset(Dataset):
     # This gets an element from the data by index
     def __getitem__(self, idx):
         # This gets the image path from the data
-        imagePath = self.data[idx][0]
+        image_path = self.data[idx][0]
         
         # The images are stored in 3 seperate folders so the program
         # uses try and excepts to find which folder it is in and open
         # the image
         image = 0
         try:
-            image = Image.open(f"data/CrowdHuman_train01/Images/{imagePath}.jpg")
+            image = Image.open(f"data/CrowdHuman_train01/Images/{image_path}.jpg")
         except:
             try:
-                image = Image.open(f"data/CrowdHuman_train02/Images/{imagePath}.jpg")
+                image = Image.open(f"data/CrowdHuman_train02/Images/{image_path}.jpg")
             except:
-                image = Image.open(f"data/CrowdHuman_train03/Images/{imagePath}.jpg")
+                image = Image.open(f"data/CrowdHuman_train03/Images/{image_path}.jpg")
         
         # It then saves the originial dimesnions of the image for scaling later on
         original_dimensions = image.size
@@ -196,14 +196,14 @@ class PeopleDataset(Dataset):
             #image = cv2.rectangle(image, (int(bbox[0]*xScale), int(bbox[1]*yScale)), (int(xScale*(bbox[0] + bbox[2])), int(yScale*(bbox[1] + bbox[3]))), (255, 0, 0), 4)
         
         # This uses the image transform to convert the image to a tensor
-        imageAsTensor = self.imageTransform(image)
+        image_as_tensor = self.image_transform(image)
 
         # Normalizes the bounding boxes by dividing by the in image size
         targets = bbox / IN_IMG_SIZE
         
         # This return the image which is the input to the neural network
         # and the bounding boxoes which are the target
-        return imageAsTensor, targets
+        return image_as_tensor, targets
 
 # This is the class for the actual neural network
 class PersonNet(nn.Module):
@@ -333,20 +333,20 @@ def load_model(path):
 def draw_result_bboxes(image, result):    
     # First it gets a threshhold, only values of more than 0.8 make it through
     # this filters any random pixels out
-    filteredResult = nn.Threshold(0.8, 0.0)(result[0])
+    filtered_result = nn.Threshold(0.8, 0.0)(result[0])
     # It then creates a tensor with the indexes of all the non zero values
-    nonZeroIndices = torch.nonzero(filteredResult)
+    non_zero_indices = torch.nonzero(filtered_result)
 
     # Then it loops through all of the indecies
-    for i in range (0, nonZeroIndices.shape[0]):        
+    for i in range (0, non_zero_indices.shape[0]):        
         # This gets the x, y, width, height at the index
-        resultVector = result[:, nonZeroIndices[i, 0], nonZeroIndices[i, 1]]
+        result_vector = result[:, non_zero_indices[i, 0], non_zero_indices[i, 1]]
 
         # This sets the x, y, width, and height and scales it to the correct size
-        bboxX = int(resultVector[1]*IN_IMG_SIZE) + int((nonZeroIndices[i, 1]/OUT_IMG_SIZE)*IN_IMG_SIZE)
-        bboxY = int(resultVector[2]*IN_IMG_SIZE) + int((nonZeroIndices[i, 0]/OUT_IMG_SIZE)*IN_IMG_SIZE)
-        bboxW = int(resultVector[3]*IN_IMG_SIZE)
-        bboxH = int(resultVector[4]*IN_IMG_SIZE)
+        bboxX = int(result_vector[1]*IN_IMG_SIZE) + int((non_zero_indices[i, 1]/OUT_IMG_SIZE)*IN_IMG_SIZE)
+        bboxY = int(result_vector[2]*IN_IMG_SIZE) + int((non_zero_indices[i, 0]/OUT_IMG_SIZE)*IN_IMG_SIZE)
+        bboxW = int(result_vector[3]*IN_IMG_SIZE)
+        bboxH = int(result_vector[4]*IN_IMG_SIZE)
 
         # This draws the bounding box on the image
         image = cv2.rectangle(image, (bboxX, bboxY), (bboxX + bboxW, bboxY + bboxH), color=(255, 0, 0), thickness=1)
@@ -358,22 +358,22 @@ def draw_result_bboxes(image, result):
 # start epoch is the epoch to start training on
 # n_epochs is the number of epochs to train for
 # pathToManifest is the path to the annotations
-# pathToData is where the images are stored
-# pathToLogs is where to save logs os the training for tensor board and models
-# pathToModel is the path of the model to load
-def train(device, start_epoch, n_epochs, pathToManifest, pathToData, pathToLogs, pathToModel = None):
+# path_to_data is where the images are stored
+# path_to_logs is where to save logs os the training for tensor board and models
+# path_to_model is the path of the model to load
+def train(device, start_epoch, n_epochs, path_to_manifest, path_to_data, path_to_logs, path_to_model = None):
     # This sets te weights for the losses which will be used later
     w1 = W1
     w2 = W2
     
     # This is an object which is used to upload things to tensor board
-    writer = SummaryWriter(log_dir=pathToLogs)
+    writer = SummaryWriter(log_dir=path_to_logs)
 
     # This creates an object for the dataset
     # The batch size is 16 and it shuffles the dataset
-    dataLoader = DataLoader( PeopleDataset(imageTransform=dataTransformations, 
-        pathToManifest=pathToManifest, 
-        pathToImages=pathToData), 
+    data_loader = data_loader( PeopleDataset(image_transform=data_transformations, 
+        path_to_manifest=path_to_manifest, 
+        path_to_images=path_to_data), 
         batch_size=16, shuffle=True)
 
     # This creates the model by loading the neural network and converting
@@ -382,14 +382,14 @@ def train(device, start_epoch, n_epochs, pathToManifest, pathToData, pathToLogs,
     # just slower
     model = PersonNet().to(device)
     # If there is no path specified then it creates a new model
-    if pathToModel != None :
-        model = load_model(pathToModel).to(device)
+    if path_to_model != None :
+        model = load_model(path_to_model).to(device)
 
     # This prints out information about the model including the number of parameters
     print("Model:")
     print(model)
-    modelTotalParams = sum(p.numel() for p in model.parameters())
-    print("Number of parameters in the model: ", modelTotalParams)
+    model_total_params = sum(p.numel() for p in model.parameters())
+    print("Number of parameters in the model: ", model_total_params)
 
     # This creates an object for the optimizer
     # Usually I would use SGD which is stacastic gradient ddesent
@@ -399,9 +399,9 @@ def train(device, start_epoch, n_epochs, pathToManifest, pathToData, pathToLogs,
     optimizer = optim.AdamW(model.parameters(), lr=1e-6)
 
     # This gets the time that the epoch started training
-    startTime = time()
+    start_time = time()
     # This is a batch counter
-    idx_counter = len(dataLoader.dataset)*(start_epoch - 1) # epochs start with 1
+    idx_counter = len(data_loader.dataset)*(start_epoch - 1) # epochs start with 1
     
     # This is a loop that loops for the amount of epochs specified
     for epoch_index in range (start_epoch, start_epoch + n_epochs):
@@ -415,25 +415,25 @@ def train(device, start_epoch, n_epochs, pathToManifest, pathToData, pathToLogs,
             log_gradient_histograms(writer, epoch_index, model)
 
         # This loops through batches in the dataset
-        for images, targets in dataLoader:
+        for images, targets in data_loader:
             # First it sets the batch images and batch targets to variables
             # and it converts them onto the GPU
-            batchImages = images.to(device)
-            batchTargets = targets.to(device)
+            batch_images = images.to(device)
+            batch_targets = targets.to(device)
 
             # This converts the targets to masks using the create_mask function
             # and converts it to the GPU
-            mask_tensor = create_mask(batchTargets).to(device)
+            mask_tensor = create_mask(batch_targets).to(device)
 
             # This clears the gradients
             optimizer.zero_grad()
 
             # Then it inputs the image into the neural network and gets an output
-            batchOuput = model(batchImages)
+            batch_output = model(batch_images)
             # It thens runs binary cross entropy loss on the mask portion which is the first channel of the output image
-            loss_ce = nn.BCELoss(reduction="mean")(batchOuput[:,0:1,:,:], mask_tensor[:,0:1,:,:])
+            loss_ce = nn.BCELoss(reduction="mean")(batch_output[:,0:1,:,:], mask_tensor[:,0:1,:,:])
             # And then it runs l1 loss on the bounding boxes
-            loss_mse = nn.SmoothL1Loss(reduction="mean")(batchOuput[:,1:,:,:], mask_tensor[:,1:,:,:])
+            loss_mse = nn.SmoothL1Loss(reduction="mean")(batch_output[:,1:,:,:], mask_tensor[:,1:,:,:])
             # It then adds the weights and multiplies the weights for training
             total_loss = w1*loss_ce + w2*loss_mse
 
@@ -454,7 +454,7 @@ def train(device, start_epoch, n_epochs, pathToManifest, pathToData, pathToLogs,
                 labels = targets[0].cpu().detach().numpy()
                 labels *= IN_IMG_SIZE # de-normalize
                 image_with_labels = draw_labels(image_to_log.copy(), labels)
-                image_with_results = draw_result_bboxes(image_to_log.copy(), batchOuput[0].cpu())
+                image_with_results = draw_result_bboxes(image_to_log.copy(), batch_output[0].cpu())
 
                 # This uploads the cross entropy loss
                 writer.add_scalar("Loss_ce", loss_ce, idx_counter)
@@ -472,7 +472,7 @@ def train(device, start_epoch, n_epochs, pathToManifest, pathToData, pathToLogs,
                 # This uploads the target mask created
                 writer.add_image("target_mask", mask_tensor[0][0], idx_counter, dataformats="HW")
                 # This uploads the mask the the neural network created 
-                writer.add_image("result_mask", batchOuput[0][0], idx_counter, dataformats="HW")
+                writer.add_image("result_mask", batch_output[0][0], idx_counter, dataformats="HW")
                 # This uploads all the data to tensor board
                 writer.flush()
             
@@ -483,13 +483,13 @@ def train(device, start_epoch, n_epochs, pathToManifest, pathToData, pathToLogs,
 
         # Save model every epoch
         if epoch_index % 1 == 0:
-            torch.save(model.state_dict(), os.path.join(pathToLogs, "facenet_{}.pt".format(epoch_index))) 
+            torch.save(model.state_dict(), os.path.join(path_to_logs, "facenet_{}.pt".format(epoch_index))) 
 
 
     # Closes the writer
     writer.close()
     # Prints out the total training time
-    print("Training Time: ", (time() - startTime)/60)
+    print("Training Time: ", (time() - start_time)/60)
 
 # This is the main function that runs the train function
 def main():
@@ -499,10 +499,10 @@ def main():
     
     # This runs the train function with all of the prameters
     train(device, start_epoch = 70, n_epochs = 40,
-          pathToManifest="data/annotation_train.odgt",
-          pathToData="Data/WIDER_train/images/",
-          pathToLogs="D:\Person_Finder_Logs",
-          pathToModel = "D:/Person_Finder_Logs/facenet_69.pt")
+          path_to_manifest="data/annotation_train.odgt",
+          path_to_data="Data/WIDER_train/images/",
+          path_to_logs="D:\Person_Finder_Logs",
+          path_to_model = "D:/Person_Finder_Logs/facenet_69.pt")
 
 # This runs main
 if __name__ == "__main__":

@@ -12,28 +12,42 @@ import torch.nn as nn
 
 import person_finder_AI
 
+# This is the name of the camera, since it is on jetson
+# it is stored in a pth
 CAM_DEVICE = "/dev/video0"
+# This is the input width and height of the camera
 CAM_WIDTH = 640
 CAM_HEIGHT = 480
+# This is the file that the model is stored in
 MODEL_FILE = "personnet_72.pt"
 
+# This is the input resolution to the neural network
 NN_IN_WIDTH = 1024
 NN_IN_HEIGHT = 1024
+
+# This is the ouput resolution of the neural network
 NN_OUT_WIDTH = 256
 NN_OUT_HEIGHT = 256
 
-people_count_list = []
+# These are the variables to calculate the sum over the specified time
+# people_count_sum is the cumilative count of all the people found over that time
+# people_count_counter is just the amount of times it found people
+# Then it divides the sum by the counter to get the average
+people_count_sum = 0
+people_count_counter = 0
 
 def timer(time_interval, log_name):
+    global people_count_sum
+    global people_count_counter
+
     time = 0
 
     while True:
         if time >= time_interval:
-            average_people_count = 0
-            for people_count in people_count_list:
-                average_people_count += people_count
+            average_people_count = people_count_sum/people_count_counter
+            people_count_sum = 0
+            people_count_counter = 0
 
-            average_people_count = average_people_count/len(people_count_list)
             print(f"Average count of people is: {average_people_count}")
 
             data = data_logger_string("sasha", log_name, average_people_count)
@@ -49,7 +63,6 @@ def timer(time_interval, log_name):
                     print("Could not send data")
 
             time = 0
-            people_count_list = []
 
         time.sleep(1)
         time += 1
@@ -120,6 +133,9 @@ def filter_bboxes(bboxes, overlap_thresh):
     return filtered_bboxes
 
 def main():
+    global people_count_sum
+    global people_count_counter
+
     print("Starting person counter")
 
     print("Opening camera {}".format(CAM_DEVICE))
@@ -191,12 +207,13 @@ def main():
         for bbox in filtered_bboxes:
             outputImage = cv2.rectangle(outputImage, (bbox[0], bbox[1]), (bbox[2], bbox[3]), color=(0, 0, 255), thickness=2)
 
-        people_count_list.append(people_count)
+        people_count_sum += people_count
+        people_count_counter += 1
 
         cv2.imshow("video", outputImage)
         cv2.waitKey(1)
         
-        time.sleep(20)
+        time.sleep(60)
 
 
 if __name__ == "__main__":
