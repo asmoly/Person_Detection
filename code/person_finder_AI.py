@@ -16,7 +16,7 @@ import torchvision.transforms as transforms
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
-from torch.utils.data import data_loader, Dataset
+from torch.utils.data import Dataset
 
 # This is tensor board which allowed me to see the loss and images during training
 from torch.utils.tensorboard import SummaryWriter
