@@ -13,7 +13,7 @@ from PIL import Image
 import person_finder_AI
 
 # Make sure that the camera is correct
-CAMERA = 0
+CAMERA = 1
 
 IN_IMG_SIZE = 1024
 OUT_IMG_SIZE = 256
